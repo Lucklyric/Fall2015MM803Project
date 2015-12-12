@@ -12,7 +12,7 @@ noseDetector = vision.CascadeObjectDetector('Nose', 'UseROI', true);
 pointTracker = vision.PointTracker('MaxBidirectionalError', 2);
 
 v = VideoReader('../testVideo/fistTest3-Lab.avi');
-vOutput = VideoWriter('../testVideo/fistTest2-Lab-Output.avi');
+vOutput = VideoWriter('../testVideo/fistTest3-Lab-Output.avi');
 
 % Initialize the tracker histogram using the Hue channel pixels from the
 % nose.

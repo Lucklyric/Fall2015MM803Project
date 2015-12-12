@@ -11,7 +11,7 @@ noseDetector = vision.CascadeObjectDetector('Nose', 'UseROI', true);
 % Create the point tracker object.
 pointTracker = vision.PointTracker('MaxBidirectionalError', 2);
 
-v = VideoWriter('../testVideo/fistTest3-Lab.avi','Uncompressed AVI');
+v = VideoWriter('../testVideo/fistTest1-Lab.avi','Uncompressed AVI');
 % vOutput = VideoWriter('../testVideo/fistTest2-Lab-Output.avi');
 % Initialize the tracker histogram using the Hue channel pixels from the
 % nose.
@@ -157,11 +157,9 @@ while runLoop
                 points = {};
                 for i=1:numOfBboxes
                     if isempty(points)
-                        points = detectMinEigenFeatures(testImage, 'ROI', handbbox(i, :));
-                        
+                        points = detectMinEigenFeatures(videoFrameGray, 'ROI', handbbox(i, :));        
                     else
                         points = vertcat(points,detectMinEigenFeatures(videoFrameGray, 'ROI', handbbox(i, :)));
-                        
                     end
                 end
                 if ~isempty(points)
