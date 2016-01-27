@@ -10,10 +10,12 @@ noseDetector = vision.CascadeObjectDetector('Nose', 'UseROI', true);
 
 % Create the point tracker object.
 pointTracker = vision.PointTracker('MaxBidirectionalError', 2);
+tracker = vision.HistogramBasedTracker;
+
 
 v = VideoReader('../testVideo/fistTest3-Lab.avi');
-vOutput = VideoWriter('../testVideo/fistTest3-Lab-Output.avi');
-
+vOutput = VideoWriter('../testVideo/fistTest1-Skin-Output.avi','Uncompressed AVI');
+vOutput.FrameRate = 10;
 % Initialize the tracker histogram using the Hue channel pixels from the
 % nose.
 
@@ -35,16 +37,21 @@ numPts = 0;
 frameCount = 0;
 hasNose = false;
 open(vOutput);
+tic;
 while hasFrame(v) && runLoop
     if frameCount > 0
             videoFrame = readFrame(v);
     end
     % Get the next frame.
-    
+    r = videoFrame(:,:,1);
+    g = videoFrame(:,:,2);
+    b = videoFrame(:,:,3);
     grayImage = videoFrame(:, :, 2); % Take green channel.
+    
     [hueChannel,~,~] = rgb2hsv(videoFrame);
     %binaryImage = grayImage < 128;
     %testImage = grayImage.*uint8(binaryImage);
+    hueChannel = grayImage;
     testImage = grayImage;
     videoFrameGray = testImage;
     frameCount = frameCount + 1;
@@ -58,26 +65,45 @@ while hasFrame(v) && runLoop
                 y = nosebbox(1,2);
                 bw = nosebbox(1,3);
                 noseG = hueChannel(y:y+bw,x:x+bw,:);
+                
+                noseR =r(y:y+bw,x:x+bw,:);
+                noseG =g(y:y+bw,x:x+bw,:);
+                noseB =b(y:y+bw,x:x+bw,:);
+                meanR = mean(mean(noseR));
                 meanG = mean(mean(noseG));
+                meanB = mean(mean(noseB));
+
+                
+                %meanG = mean(mean(noseG));
                 videoFrame = insertObjectAnnotation(videoFrame, 'rectangle',nosebbox, 'nose');
                 hasNose = true;
             end
         end
     else
-        binaryImage = hueChannel < meanG+1*meanG & hueChannel > meanG-1*meanG;
+        %binaryImage = hueChannel < meanG+1*meanG & hueChannel > meanG-1*meanG;
+        %binaryImage = hueChannel < meanG+1*meanG ;
         %binaryImage = medfilt2(binaryImage,[10,10]);
+        thresh = 60;
+        binaryImage = r < meanR+thresh & r > meanR- thresh&g < meanG+thresh & r > meanG-thresh&b < meanB+thresh & b > meanB-thresh;
         I = gpuArray(binaryImage);
-        K = gather(medfilt2(I,[7,7]));
-        testImage = grayImage.*uint8(K);
+        binaryImage = gather(medfilt2(I,[7,7]));
+        testImage = grayImage.*uint8(binaryImage);
     end
     
     handbbox = pistDetector.step(testImage);
-   % videoFrame = insertObjectAnnotation(videoFrame, 'rectangle',handbbox, 'hand');
-%     if ~hasNose 
+    %videoFrame = insertObjectAnnotation(videoFrame,'rectangle',handbbox,'Hand');
+
+    if numPts > 0
+     % Track using the Hue channel data
+        %meanbbox = step(tracker, hueChannel);
+        %videoFrame = insertObjectAnnotation(videoFrame,'rectangle',meanbbox,'Mean');
+    end
+    %videoFrame = insertObjectAnnotation(videoFrame, 'rectangle',handbbox, 'hand');
+%     if ~hasNose
 %         step(videoPlayer, videoFrame);
 %         step(videoPlayerFilter,testImage);
-% 
-%     % Check whether the video player window has been closed.
+%         
+%         % Check whether the video player window has been closed.
 %         runLoop = isOpen(videoPlayer);
 %         continue;
 %     end
@@ -96,6 +122,7 @@ while hasFrame(v) && runLoop
             release(pointTracker);
             if numPts > 0
                 initialize(pointTracker, xyPoints, videoFrameGray);
+                initializeObject(tracker, hueChannel, bbox(1,:));
             end 
             % Save a copy of the points.
             oldPoints = xyPoints;
@@ -180,12 +207,12 @@ while hasFrame(v) && runLoop
     % Display the annotated video frame using the video player object.
     step(videoPlayer, videoFrame);
     step(videoPlayerFilter,testImage);
-    writeVideo(vOutput,videoFrame);
+    writeVideo(vOutput,testImage);
 
     % Check whether the video player window has been closed.
     runLoop = isOpen(videoPlayer);
 end
-
+executeTime = toc/frameCount;
 % Clean up.
 release(videoPlayer);
 release(videoPlayerFilter);

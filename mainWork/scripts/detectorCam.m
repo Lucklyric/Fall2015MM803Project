@@ -11,7 +11,7 @@ noseDetector = vision.CascadeObjectDetector('Nose', 'UseROI', true);
 % Create the point tracker object.
 pointTracker = vision.PointTracker('MaxBidirectionalError', 2);
 
-v = VideoWriter('../testVideo/fistTest1-Lab.avi','Uncompressed AVI');
+v = VideoWriter('../testVideo/fistTest5-Demo.avi','Uncompressed AVI');
 % vOutput = VideoWriter('../testVideo/fistTest2-Lab-Output.avi');
 % Initialize the tracker histogram using the Hue channel pixels from the
 % nose.
@@ -43,8 +43,13 @@ while runLoop
     % Get the next frame.
     videoFrame = snapshot(cam);
     writeVideo(v,videoFrame);
+    r = videoFrame(:,:,1);
+    g = videoFrame(:,:,2);
+    b = videoFrame(:,:,3);
     grayImage = videoFrame(:, :, 2); % Take green channel.
+    
     [hueChannel,~,~] = rgb2hsv(videoFrame);
+    hueChannel = grayImage;
     %binaryImage = grayImage < 128;
     %testImage = grayImage.*uint8(binaryImage);
     testImage = grayImage;
@@ -56,34 +61,35 @@ while runLoop
             nosebbox = noseDetector.step(videoFrameGray,facebbox(1,:));
             if ~isempty(nosebbox)
                 [fh hw] = size(nosebbox);
+%                 x = nosebbox(1,1);
+%                 y = nosebbox(1,2);
+%                 bw = nosebbox(1,3);
+%                 noseG = hueChannel(y:y+bw,x:x+bw,:);
+%                 meanG = mean(mean(noseG));
                 x = nosebbox(1,1);
                 y = nosebbox(1,2);
                 bw = nosebbox(1,3);
-                noseG = hueChannel(y:y+bw,x:x+bw,:);
+                noseR =r(y:y+bw,x:x+bw,:);
+                noseG =g(y:y+bw,x:x+bw,:);
+                noseB =b(y:y+bw,x:x+bw,:);
+                meanR = mean(mean(noseR));
                 meanG = mean(mean(noseG));
+                meanB = mean(mean(noseB));
                 videoFrame = insertObjectAnnotation(videoFrame, 'rectangle',nosebbox, 'nose');
                 hasNose = true;
             end
         end
     else
-        binaryImage = hueChannel < meanG+1*meanG & hueChannel > meanG-1*meanG;
+        %binaryImage = hueChannel < meanG+meanG & hueChannel > 0;
         %binaryImage = medfilt2(binaryImage,[10,10]);
+        thresh = 60;
+        binaryImage = r < meanR+thresh & r > meanR- thresh&g < meanG+thresh & r > meanG-thresh&b < meanB+thresh & b > meanB-thresh;
         I = gpuArray(binaryImage);
         K = gather(medfilt2(I,[7,7]));
         testImage = grayImage.*uint8(K);
     end
     
     handbbox = pistDetector.step(testImage);
-   % videoFrame = insertObjectAnnotation(videoFrame, 'rectangle',handbbox, 'hand');
-    
-    if ~hasNose 
-        step(videoPlayer, videoFrame);
-        step(videoPlayerFilter,testImage);
-
-    % Check whether the video player window has been closed.
-    runLoop = isOpen(videoPlayer);
-        continue;
-    end
     if numPts < 10
         % Detection mode.
         bbox = pistDetector.step(testImage);
